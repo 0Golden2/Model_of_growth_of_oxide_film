@@ -1,7 +1,5 @@
 import numpy as np
 import matplotlib.pyplot as plt
-# from sympy import Matrix, solve_linear_system
-# from sympy.abc import x, y, z
 
 
 def is_matrix_correct(matrix):
@@ -28,61 +26,43 @@ def is_matrix_correct(matrix):
     return True
 
 
-# def solve_two_first_eq(mat, h):
-#     system = Matrix(( (mat[0][0], mat[0][1], mat[0][2], h[0]), (mat[1][0], mat[1][1], mat[1][2], h[1]) ))
-#     return solve_linear_system(system, x, y, z)
-
-
 def read_const_file(file_name):
     with open(file_name, 'r',  encoding='utf-8') as f:
         print("""Если хотите найти равновесное решение, введите 1, если решение через n-ое время, то введите 2.""")
         k = int(input())
-        D = float(f.readline()) #Коэффициент диффузии
-        x_max = float(f.readline()) #длина промежутка
-        dx = float(f.readline()) #шаг деления промежутка
-        dt = float(f.readline()) #шаг по времени
-        GU_left = int(f.readline()) # ГУ на левой границе
-        GU_right = int(f.readline()) # ГУ на правой границе
-        n_out = None
-        nt = None
-        nt_out = None
-        a1 = 1
-        b1 = 1
-        c1 = 1
-        a2 = 1
-        b2 = 1
-        c2 = 1
-        if k == 1:
-            n_out = int(f.readline()) # Шаг вывода графиков
-        elif k == 2:
-            nt = int(f.readline()) # Полное время
-            nt_out = int(f.readline()) # кол-во графиков, которые выводятся
-        else:
-            raise ValueError('k может принимать значение 1 или 2')
-        if GU_left == 3:
-            a1 = float(f.readline())
-            b1 = float(f.readline())
-            c1 = float(f.readline())
-        if GU_right == 3:
-            a2 = float(f.readline())
-            b2 = float(f.readline())
-            c2 = float(f.readline())
-    return D, x_max, dx, dt, GU_left, GU_right, nt, nt_out, n_out, k, a1, b1, c1, a2, b2, c2
+        constants = []
+        num_eq = int(f.readline())
+        D = list(map(float, f.readline().split())) #Коэффициент диффузии
+        x_max = list(map(float, f.readline().split())) #длина промежутка
+        dx = list(map(float, f.readline().split())) #шаг деления промежутка
+        dt = list(map(float, f.readline().split())) #шаг по времени
+        a1 = list(map(float, f.readline().split()))
+        b1 = list(map(float, f.readline().split()))
+        c1 = list(map(float, f.readline().split()))
+        a2 = list(map(float, f.readline().split()))
+        b2 = list(map(float, f.readline().split()))
+        c2 = list(map(float, f.readline().split()))
+        # C_init = list()
+        nt_out = tuple(map(int,
+                          f.readline().split()))  # должен содержать полное время и кол-во графиков, которые выводятся или шаг вывода графиков
+        constants.append([D, x_max, dx, dt, a1, b1, c1, a2, b2, c2])
+        # constants.append(C_init)
+        constants.append(nt_out)
+        constants.append(k)
+        constants.append(num_eq)
+    return constants
 
 
-def solve_eq(matrix, h):
+def solve_eq(matrix, Cn, vec_l, vec_r, B0, f, s, C0, C1, mat_corr_l, mat_corr_r):
     if not is_matrix_correct(matrix):
         print('Ошибка в исходных данных')
         return -1
+    # print(Cn, B0)
+    h = np.dot(Cn[vec_l:vec_r], B0) + f[vec_l:vec_r]
+    h[0] = h[0] + s * C0 * ((2 * mat_corr_l + 1) % 2)
+    h[-1] = h[-1] + s * C1 * ((2 * mat_corr_r + 1) % 2)
 
     n = len(matrix)
-
-    # if (mat_ic == np.zeros((n,))).all():
-    #     h = b
-    # else:
-    #     h = mat_ic.dot(b)
-    # print('h=', h)
-
     sol = np.zeros((n,), dtype=float)
 
     # Прямой ход
@@ -102,28 +82,6 @@ def solve_eq(matrix, h):
     # print(matrix[n - 1][n - 2], u[n - 2], h[n - 1], matrix[n - 1][n - 1], matrix[n - 1][n - 2], v[n - 2])
     u[n - 1] = (matrix[n - 1][n - 2] * u[n - 2] - h[n - 1]) / (-matrix[n - 1][n - 1] - matrix[n - 1][n - 2] * v[n - 2])
 
-    # elif type_GU == 2:
-    #     sol_two_first_eq = solve_two_first_eq(matrix, h)
-    #     keys = [key for key in sol_two_first_eq.keys()]
-    #     x, y = sol_two_first_eq[keys[0]], sol_two_first_eq[keys[1]]
-    #     x1 = x.args[1].as_coeff_mul()[1][0]*x.args[1].as_coeff_mul()[0]
-    #     x2 = x.args[0]
-    #     y1 = y.args[1].as_coeff_mul()[1][0]*y.args[1].as_coeff_mul()[0]
-    #     y2 = y.args[0]
-    #     v[0] = x1 / y1
-    #     u[0] = v[0] * y2 + x2
-    #     v[1] = y1
-    #     u[1] = y2
-    #
-    #     for i in range(2, n - 1):
-    #         v[i] = matrix[i][i + 1] / (-matrix[i][i] - matrix[i][i - 1] * v[i - 1])
-    #         u[i] = (matrix[i][i - 1] * u[i - 1] - h[i]) / (-matrix[i][i] - matrix[i][i - 1] * v[i - 1])
-
-        # # Для последней n-1-й:
-        # v[n - 1] = 0
-        # # print(matrix[n - 1][n - 2], u[n - 2], h[n - 1], matrix[n - 1][n - 1], matrix[n - 1][n - 2], v[n - 2])
-        # u[n - 1] = (matrix[n - 1][n - 2] * u[n - 2] - h[n - 1]) / (-matrix[n - 1][n - 1] - matrix[n - 1][n - 2] * v[n - 2])
-
     # Обратный ход
     sol[n - 1] = u[n - 1]
     for i in range(n - 1, 0, -1):
@@ -132,221 +90,157 @@ def solve_eq(matrix, h):
     return sol
 
 
+def create_matrix_coeffitients(a1, b1, c1, a2, b2, c2, nx, dx, dt, D, num_eq, C1, C2=None):
+    s = []  # diffusion number
+    mat_corr_l1 = [1] * num_eq
+    mat_corr_r1 = [1] * num_eq
+    mat_i_corr = [0] * num_eq # корректировочный коэффцициент к количеству иттераций в матрице
+    vec_l = [0] * num_eq # корректировочный коэффцициент к вектору B на левой границе
+    vec_r = [None] * num_eq # корректировочный коэффцициент к вектору B на правой границе\
+    mat_corr_l = [0.5] * num_eq # корректировочный коэффцициент к виду матрицы
+    mat_corr_r = [0.5] * num_eq
+    C_0 = [0] * num_eq
+    C_last = [0] * num_eq
+    f1 = np.zeros(nx)
+    f2 = np.zeros(nx)
+    for i in range(num_eq):
+        s.append(D[i] * dt[i] / dx[i] ** 2)
+
+        if a1[i] != 0:
+            if i == 0:
+                f1[0] = s[0] * c1[0] * dx[0] / a1[0]
+            else:
+                f2[0] = s[1] * c1[1] * dx[1] / a1[1]
+        if a2[i] != 0:
+            if i == 0:
+                f1[-1] = - s[0] * c2[0] * dx[0] / a2[0]
+            else:
+                f2[-1] = - s[1] * c2[1] * dx[1] / a2[1]
+
+        if (a1[i] == 0) and (b1[i] != 0):
+            mat_corr_l1[i] = 0
+            mat_corr_l[i] = 1
+            mat_i_corr[i] += -1
+            vec_l[i] = 1
+            a1[i] = 1
+            C_0[i] = -c1[i] / b1[i]
+            if i == 0:
+                C1[0] = -c1[0] / b1[0]
+            elif i == 1 and C2 is not None:
+                C2[0] = -c1[1] / b1[1]
+        if (a2[i] == 0) and (b2[i] != 0):
+            mat_corr_r1[i] = 0
+            mat_corr_r[i] = 1
+            mat_i_corr[i] += -1
+            vec_r[i] = -1
+            a2[i] = 1
+            C_last[i] = -c2[i] / b2[i]
+            if i == 0:
+                C1[-1] = -c2[0] / b2[0]
+            elif i == 1 and C2 is not None:
+                C2[-1] = -c2[1] / b2[1]
+
+    return mat_corr_r, mat_corr_l, mat_i_corr, mat_corr_l1, mat_corr_r1, vec_r, vec_l, C_0, C_last, s, f1, f2, C1, C2
+
+
+def create_matrix(mat_corr_r, mat_corr_l, mat_corr_l1, mat_corr_r1, mat_i_corr, nx, dx, a1, b1, a2, b2, s):
+    A2 = np.array([])
+    B2 = np.array([])
+    A1 = np.diagflat([-0.5 * s[0] for i in range(nx - 1 + mat_i_corr[0])], -1) + \
+         np.diagflat([1. + mat_corr_l[0] * s[0] * (1 - mat_corr_l1[0] * (dx[0] * b1[0] / a1[0]))] + \
+                    [1. + s[0] for i in range(nx - 2 + mat_i_corr[0])] + \
+                    [1. + mat_corr_r[0] * s[0] * (1 + mat_corr_r1[0] * (dx[0] * b2[0] / a2[0]))]) + \
+         np.diagflat([-0.5 * s[0] for i in range(nx - 1 + mat_i_corr[0])], 1)
+
+    B1 = np.diagflat([0.5 * s[0] for i in range(nx - 1 + mat_i_corr[0])], -1) + \
+         np.diagflat([1. - mat_corr_l[0] * s[0]  * (1 - mat_corr_l1[0] * (dx[0] * b1[0] / a1[0]))] + \
+                     [1. - s[0] for i in range(nx - 2 + mat_i_corr[0])] + \
+                     [1. - mat_corr_r[0] * s[0]  * (1 + mat_corr_r1[0] * (dx[0] * b2[0] / a2[0]))]) + \
+         np.diagflat([0.5 * s[0] for i in range(nx - 1 + mat_i_corr[0])], 1)
+    if len(s) == 2:
+        A2 = np.diagflat([-0.5 * s[1] for i in range(nx - 1 + mat_i_corr[1])], -1) + \
+            np.diagflat([1. + mat_corr_l[1] * s[1] * (1 - mat_corr_l1[1] * (dx[1] * b1[1] / a1[1]))] + \
+                        [1. + s[1] for i in range(nx - 2 + mat_i_corr[1])] + \
+                        [1. + mat_corr_r[1] * s[1] * (1 + mat_corr_r1[1] * (dx[1] * b2[1] / a2[1]))]) + \
+            np.diagflat([-0.5 * s[1] for i in range(nx - 1 + mat_i_corr[1])], 1)
+
+        B2 = np.diagflat([0.5 * s[1] for i in range(nx - 1 + mat_i_corr[1])], -1) + \
+             np.diagflat([1. - mat_corr_l[1] * s[1]  * (1 - mat_corr_l1[1] * (dx[1] * b1[1] / a1[1]))] + \
+                         [1. - s[1] for i in range(nx - 2 + mat_i_corr[1])] + \
+                         [1. - mat_corr_r[1] * s[1]  * (1 + mat_corr_r1[1] * (dx[1] * b2[1] / a2[1]))]) + \
+             np.diagflat([0.5 * s[1] for i in range(nx - 1 + mat_i_corr[1])], 1)
+    return A1, B1, A2, B2
+
+
 #Выводит каждый ntout-ный график
-def find_equilibrium_solution(dx, nx, dt, D, C, GU_left, GU_right, a1=1, b1=1, c1=1, a2=1,b2=1,c2=1, ntout=1000,):
-    delta = 0.00000001
-    Cout = []  # list for storing V arrays at certain time steps
-    s = D * dt / dx ** 2  # diffusion number
-    Cn = np.zeros(nx)
-    n = 1
-    mat_i_corr = 0  # корректировочный коэффцициент к количеству иттераций в матрице
-    vec_l = 0   # корректировочный коэффцициент к вектору B на левой границе
-    vec_r = None    # корректировочный коэффцициент к вектору B на правой границе\
-    mat_corr_l = 0.5  # корректировочный коэффцициент к виду матрицы
-    mat_corr_r = 0.5
-    mat_corr_l3 = 0 # корректировочный коэффцициент к виду матрицы для условия 3 рода
-    mat_corr_r3 = 0
-    C0 = 0
-    C1 = 0
-    f = np.zeros(nx)
-    if (a1 == 0) and (b1 != 0):
-        GU_left = 1
-        a1 = 1
-        C[0] = -c1 / b1
-        C0 = C[0]
-    if (a2 == 0) and (b2 != 0):
-        GU_right = 1
-        a2 = 1
-        C[-1] = -c2 / b1
-        C1 = C[-1]
-    if GU_left == 1:
-        mat_corr_l = 1
-        mat_i_corr += -1
-        vec_l = 1
-        C0 = C[0] # boundary condition on left side
-    elif GU_left == 3:
-        mat_corr_l3 = 1
-        f[0] = s * c1 * dx / a1
+def find_solution(cnst, ntout, num_eq, C1, C2=None):
+    D, x_max, dx, dt, a1, b1, c1, a2, b2, c2 = cnst
+    x = np.arange(0, x_max[0] + dx[0], dx[0])
+    nx = len(x)
+    nt, n_out = ntout
+    mat_corr_r, mat_corr_l, mat_i_corr, mat_corr_l1, mat_corr_r1, vec_r, vec_l, C_0, C_last, s, f1, f2, C1, C2 = \
+        create_matrix_coeffitients(a1, b1, c1, a2, b2, c2, nx, dx, dt, D, num_eq, C1.copy(), C2.copy())
 
-    if GU_right == 1:
-        mat_corr_r = 1
-        mat_i_corr += -1
-        vec_r = -1
-        C1 = C[-1]  # boundary condition on right side
-    elif GU_right == 3:
-        mat_corr_r3 = 1
-        f[-1] = - s * c2 * dx / a2
 
-    A = np.diagflat([-0.5 * s for i in range(nx - 1 + mat_i_corr)], -1) + \
-        np.diagflat([1. + mat_corr_l * s * (1 - mat_corr_l3 * (dx * b1 / a1))] + \
-                    [1. + s for i in range(nx - 2 + mat_i_corr)] + \
-                    [1. + mat_corr_r * s * (1 + (dx * b2 / a2) * mat_corr_r3)]) + \
-        np.diagflat([-0.5 * s for i in range(nx - 1 + mat_i_corr)], 1)
+    A1, B1, A2, B2 = create_matrix(mat_corr_r, mat_corr_l, mat_corr_l1, mat_corr_r1, mat_i_corr, nx, dx, a1, b1, a2, b2, s)
 
-    B1 = np.diagflat([0.5 * s for i in range(nx - 1 + mat_i_corr)], -1) + \
-         np.diagflat([1. - mat_corr_l * s  * (1 - (dx * b1 / a1) * mat_corr_l3)] + \
-                     [1. - s for i in range(nx - 2 + mat_i_corr)] + \
-                     [1. - mat_corr_r * s  * (1 + (dx * b2 / a2) * mat_corr_r3)]) + \
-         np.diagflat([0.5 * s for i in range(nx - 1 + mat_i_corr)], 1)
-
-    print(A)
-    while any(map(lambda q: np.fabs(q) > delta,
-                  (np.array(Cn) - np.array(C)))):  # time is going from second time step to last
-        Cn = C.copy()
-        if any(map(lambda q: q > 10**(2), Cn)):
-            raise ValueError('Решение не найдено')
-        B = np.dot(Cn[vec_l:vec_r], B1) + f[vec_l:vec_r]
-        B[0] = B[0] + 0.5 * s * (C0 + C0) * ((2 * mat_corr_l + 1) % 2)
-        B[-1] = B[-1] + 0.5 * s * (C1 + C1) * ((2 * mat_corr_r + 1) % 2)
-        C[vec_l:vec_r] = solve_eq(A, B)
-        if n % ntout == 0:
-            Cout.append(C.copy())  # numpy arrays are mutable, so we need to write out a copy of V, not V itself
+    Cout1 = []  # list for storing C arrays at certain time steps
+    Cout2 = []
+    for n in range(1, nt): # time is going from second time step to last
+        Cn1 = C1.copy()
+        C1[vec_l[0]:vec_r[0]] = solve_eq(A1, Cn1, vec_l[0], vec_r[0], B1, f1, s[0], C_0[0], C_last[0], mat_corr_l[0], mat_corr_r[0])
+        if num_eq == 2:
+            Cn2 = C2.copy()
+            C2[vec_l[1]:vec_r[1]] = solve_eq(A2, Cn2, vec_l[1], vec_r[1], B2, f2, s[1], C_0[1], C_last[1], mat_corr_l[1], mat_corr_r[1])
+        if n % int(nt / float(n_out)) == 0 or n == nt - 1:
+            Cout1.append(C1.copy())  # numpy arrays are mutable, so we need to write out a copy of C, not C itself
+            if C2 is not None:
+                Cout2.append(C2.copy())
             print(n)
-        n += 1
-        if n == 10000:
-            break
-
-    # A = np.diagflat([-0.5 * s for i in range(nx - 1)], -1) + \
-    #     np.diagflat([1 + 0.5 * s] + [1. + s for i in range(nx - 2)] + [1 + 0.5 * s]) + \
-    #     np.diagflat([-0.5 * s for i in range(nx - 1)], 1)
-    #
-    # B1 = np.diagflat([0.5 * s for i in range(nx - 1)], -1) + \
-    #      np.diagflat([1 - 0.5 * s] + [1 - s for i in range(nx - 2)] + [1 - 0.5 * s]) + \
-    #      np.diagflat([0.5 * s for i in range(nx - 1)], 1)
-    #
-    # print(A)
-    # while any(map(lambda q: np.fabs(q) > delta, (np.array(Vn) - np.array(V)))):  # time is going from second time step to last
-    #     Vn = V.copy()
-    #     if any(map(lambda q: np.isnan(q), Vn)):
-    #         raise ValueError('Решение не найдено')
-    #     B = np.dot(Vn, B1)
-    #     V = solve_eq(A, B)
-    #     if n % ntout == 0:
-    #         Vout.append(V.copy())  # numpy arrays are mutable, so we need to write out a copy of V, not V itself
-    #         print(n)
-    #     n += 1
-    return Cout, C
+    return Cout1, C1, Cout2, C2
 
 
-# fig, ax = plt.subplots()
-# xdata, ydata = [], []
-# ln, = plt.plot([], [], 'ro')
+def print_plot(x, C_out, C_in):
+    plt.plot(x, C_out[-1], linestyle='-.', color='red')
+    plt.xlabel('Глубина образца', fontsize=12)
+    plt.ylabel('Концентрация', fontsize=12)
+    plt.title('Конечное распределение', fontsize=14)
+    plt.show()
+    fig, ax = plt.subplots()
+    for C in C_out:
+        if list(C) == list(C_out[-1]):
+            ax.plot(x, C_out[-1], linestyle='-.', color='red', label='Конечное распределение')
+        else:
+            ax.plot(x, C, 'k')
+    ax.plot(x, C_in, linestyle='-', color='green', label='Начальное распределение')
+    plt.legend(loc='upper left')
+    plt.xlabel('Глубина образца', fontsize=12)
+    plt.ylabel('Концентрация', fontsize=12)
+    plt.title('Crank-Nicolson scheme', fontsize=14)
+    plt.show()
 
-# i = 0
-#
-# def init():
-#     ax.set_xlim(0, 1)
-#     ax.set_ylim(0, 1)
-#     return ln
-#
-#
-#
-# def update(frame, h):
-#     global i
-#     xdata.append(frame)
-#     ydata.append(h[i])
-#     ln.set_data(xdata, ydata)
-#     i += 1
-#     return ln
 
-#Выводит ntout графиков
-def find_time_solution(dx, nx, dt, D, V, type_GU, nt=1000000, ntout=10):
-    Vout = []  # list for storing V arrays at certain time steps
-    s = D * dt / dx ** 2  # diffusion number
-    if type_GU == 1:
-        V0 = V[0]  # boundary condition on left side
-        V1 = V[-1]  # boundary condition on right side
-        A = np.diagflat([-0.5 * s for i in range(nx - 3)], -1) + \
-            np.diagflat([1 + s] + [1. + s for i in range(nx - 4)] + [1 + s]) + \
-            np.diagflat([-0.5 * s for i in range(nx - 3)], 1)
-
-        B1 = np.diagflat([0.5 * s for i in range(nx - 3)], -1) + \
-             np.diagflat([1 - s] + [1 - s for i in range(nx - 4)] + [1 - s]) + \
-             np.diagflat([0.5 * s for i in range(nx - 3)], 1)
-
-        for n in range(1,nt): # time is going from second time step to last
-            Vn = V
-            B = np.dot(Vn[1:-1],B1)
-            B[0] = B[0]+0.5*s*(V0+V0)
-            B[-1] = B[-1]+0.5*s*(V1+V1)
-            V[1:-1] = solve_eq(A, B)
-            if n % int(nt/float(ntout)) == 0 or n==nt-1:
-                Vout.append(V.copy()) # numpy arrays are mutable, so we need to write out a copy of V, not V itself
-                print(n)
-
-    elif type_GU == 2:
-        A = np.diagflat([-0.5 * s for i in range(nx - 1)], -1) + \
-            np.diagflat([1 + 0.5 * s] + [1. + s for i in range(nx - 2)] + [1 + 0.5 * s]) + \
-            np.diagflat([-0.5 * s for i in range(nx - 1)], 1)
-
-        B1 = np.diagflat([0.5 * s for i in range(nx - 1)], -1) + \
-             np.diagflat([1 - 0.5 * s] + [1 - s for i in range(nx - 2)] + [1 - 0.5 * s]) + \
-             np.diagflat([0.5 * s for i in range(nx - 1)], 1)
-
-        for n in range(1,nt): # time is going from second time step to last
-            Vn = V
-            B = np.dot(Vn,B1)
-            V = solve_eq(A, B)
-            if n % int(nt/float(ntout)) == 0 or n==nt-1:
-                Vout.append(V.copy()) # numpy arrays are mutable, so we need to write out a copy of V, not V itself
-                print(n)
-    return Vout
+def write_data(k, C_out):
+    with open(f"Результаты уравнения {k}.txt", "w+", encoding='utf-8') as f:
+        np.savetxt(f, np.array(C_out).T, fmt='%10.10f')
+    print(f"Результаты уравнения {k} успешно внесены")
 
 # Main блок
-D, x_max, dx, dt, GU_left, GU_right, nt, ntout, nout, k, a1, b1, c1, a2, b2, c2 = read_const_file('Константы 1.txt')
-x = np.arange(0, x_max + dx, dx)
-nx = len(x)
-# C_in =  np.array([1. for i in range(0, int(nx / 2))] + [0. for j in range(int(nx / 2), nx)]) # initial condition
-C_in = np.array([1. for i in range(0, nx)])
-C_in[-1] = 0.
-if k == 1:
-    C_out, C_last = find_equilibrium_solution(dx,nx, dt, D, C_in.copy(), GU_left, GU_right, a1, b1, c1, a2, b2, c2, nout)
-    C_out.append(C_last)
-elif k == 2:
-    C_out = find_time_solution(dx, nx, dt, D, C_in.copy(), GU_left, GU_right, nt, ntout)
-print(C_out[-1])
+cnst, ntout, k, num_eq = read_const_file('Константы 1.txt')
+nx = len(np.arange(0, cnst[1][0] + cnst[2][0], cnst[2][0]))
+C_in =  np.array([1. for i in range(0, int(nx / 2))] + [0. for j in range(int(nx / 2), nx)]) # initial condition
+C_in2 =  np.array([0. for p in range(0, int(nx / 2))] + [1. for l in range(int(nx / 2), nx)])
+# C_in2[-1] = 1.
+C1_out, C1_last, C2_out, C2_last = find_solution(cnst, ntout, num_eq,  C_in.copy(), C_in2.copy())
+C1_out.append(C1_last)
+C2_out.append(C2_last)
 
+write_data(1, C1_out)
+write_data(2, C2_out)
 #вывод графиков
-plt.plot(x , C_out[-1], linestyle='-.', color='red')
-plt.xlabel('Глубина образца',fontsize=12)
-plt.ylabel('Концентрация',fontsize=12)
-plt.title('Конечное распределение',fontsize=14)
-plt.show()
-fig, ax = plt.subplots()
-for C in C_out:
-    if list(C) == list(C_out[-1]):
-        ax.plot(x , C_out[-1], linestyle='-.', color='red',label='Конечное распределение')
-    else:
-        ax.plot(x, C, 'k')
-ax.plot(x, C_in, linestyle='-', color='green', label='Начальное распределение')
-plt.legend(loc='upper left')
-plt.xlabel('Глубина образца',fontsize=12)
-plt.ylabel('Концентрация',fontsize=12)
-plt.title('Crank-Nicolson scheme',fontsize=14)
-plt.show()
+x = np.arange(0, cnst[1][0] + cnst[2][0], cnst[2][0])
+print_plot(x, C1_out, C_in)
+if num_eq == 2:
+    print_plot(x, C2_out, C_in2)
 
 
-
-
-# fig, ax = plt.subplots()
-# x = np.linspace(0, 1, b.shape[0])
-# for iteration, solution in res_list:
-#     if iteration == res_list[-1][0]:
-#         ax.plot(x, solution, label='Конечное распределение', ls='-.')
-#     else:
-#         ax.plot(x, solution)
-#
-# ax.plot(x, b, label='Начальное распределение', ls='--')
-# plt.legend(loc='upper left')
-# plt.ylabel("C")
-# plt.xlabel("x")
-# plt.savefig('1.png')
-# plt.show()
-#
-# print('Решение найдено:', '\n', y)
-
-# h = mat_ic.dot(b)
-# x, y = solve_two_first_eq(mat, h)[x], solve_two_first_eq(mat,  h)[y]
-# print(x.args[0], x.args[1].as_coeff_mul()[1][0]*x.args[1].as_coeff_mul()[0], y.args[0], y.args[1].as_coeff_mul()[1][0]*y.args[1].as_coeff_mul()[0], x, y)
-# solution_two_first_eq = solve_two_first_eq(mat, b)
-# print(solution_two_first_eq)
