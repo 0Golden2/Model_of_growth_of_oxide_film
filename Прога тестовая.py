@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from config_creator import param
 
 
 def is_matrix_correct(matrix):
@@ -26,31 +27,31 @@ def is_matrix_correct(matrix):
     return True
 
 
-def read_const_file(file_name):
-    with open(file_name, 'r',  encoding='utf-8') as f:
-        print("""Если хотите найти равновесное решение, введите 1, если решение через n-ое время, то введите 2.""")
-        k = int(input())
-        constants = []
-        num_eq = int(f.readline())
-        D = list(map(float, f.readline().split())) #Коэффициент диффузии
-        x_max = list(map(float, f.readline().split())) #длина промежутка
-        dx = list(map(float, f.readline().split())) #шаг деления промежутка
-        dt = list(map(float, f.readline().split())) #шаг по времени
-        a1 = list(map(float, f.readline().split()))
-        b1 = list(map(float, f.readline().split()))
-        c1 = list(map(float, f.readline().split()))
-        a2 = list(map(float, f.readline().split()))
-        b2 = list(map(float, f.readline().split()))
-        c2 = list(map(float, f.readline().split()))
-        # C_init = list()
-        nt_out = tuple(map(int,
-                          f.readline().split()))  # должен содержать полное время и кол-во графиков, которые выводятся или шаг вывода графиков
-        constants.append([D, x_max, dx, dt, a1, b1, c1, a2, b2, c2])
-        # constants.append(C_init)
-        constants.append(nt_out)
-        constants.append(k)
-        constants.append(num_eq)
-    return constants
+# def read_const_file(file_name):
+#     with open(file_name, 'r',  encoding='utf-8') as f:
+#         print("""Если хотите найти равновесное решение, введите 1, если решение через n-ое время, то введите 2.""")
+#         num_eq = int(input())
+#         constants = []
+#         # num_eq = int(f.readline())
+#         D = list(map(float, f.readline().split())) #Коэффициент диффузии
+#         x_max = list(map(float, f.readline().split())) #длина промежутка
+#         dx = list(map(float, f.readline().split())) #шаг деления промежутка
+#         dt = list(map(float, f.readline().split())) #шаг по времени
+#         a1 = list(map(float, f.readline().split()))
+#         b1 = list(map(float, f.readline().split()))
+#         c1 = list(map(float, f.readline().split()))
+#         a2 = list(map(float, f.readline().split()))
+#         b2 = list(map(float, f.readline().split()))
+#         c2 = list(map(float, f.readline().split()))
+#         # C_init = list()
+#         nt_out = tuple(map(int,
+#                           f.readline().split()))  # должен содержать полное время и кол-во графиков, которые выводятся или шаг вывода графиков
+#         constants.append([D, x_max, dx, dt, a1, b1, c1, a2, b2, c2])
+#         # constants.append(C_init)
+#         constants.append(nt_out)
+#         # constants.append(k)
+#         constants.append(num_eq)
+#     return constants
 
 
 def solve_eq(matrix, Cn, vec_l, vec_r, B0, f, s, C0, C1, mat_corr_l, mat_corr_r):
@@ -90,7 +91,7 @@ def solve_eq(matrix, Cn, vec_l, vec_r, B0, f, s, C0, C1, mat_corr_l, mat_corr_r)
     return sol
 
 
-def create_matrix_coeffitients(a1, b1, c1, a2, b2, c2, nx, dx, dt, D, num_eq, C1, C2=None):
+def create_matrix_coeffitients(a1, b1, c1, a2, b2, c2, nx1, nx2, dx, dt, D, num_eq, C1, C2=None):
     s = []  # diffusion number
     mat_corr_l1 = [1] * num_eq
     mat_corr_r1 = [1] * num_eq
@@ -101,8 +102,10 @@ def create_matrix_coeffitients(a1, b1, c1, a2, b2, c2, nx, dx, dt, D, num_eq, C1
     mat_corr_r = [0.5] * num_eq
     C_0 = [0] * num_eq
     C_last = [0] * num_eq
-    f1 = np.zeros(nx)
-    f2 = np.zeros(nx)
+    f1 = np.zeros(nx1)
+    f2 = None
+    if nx2 is not None:
+        f2 = np.zeros(nx2)
     for i in range(num_eq):
         s.append(D[i] * dt[i] / dx[i] ** 2)
 
@@ -143,60 +146,66 @@ def create_matrix_coeffitients(a1, b1, c1, a2, b2, c2, nx, dx, dt, D, num_eq, C1
     return mat_corr_r, mat_corr_l, mat_i_corr, mat_corr_l1, mat_corr_r1, vec_r, vec_l, C_0, C_last, s, f1, f2, C1, C2
 
 
-def create_matrix(mat_corr_r, mat_corr_l, mat_corr_l1, mat_corr_r1, mat_i_corr, nx, dx, a1, b1, a2, b2, s):
+def create_matrix(mat_corr_r, mat_corr_l, mat_corr_l1, mat_corr_r1, mat_i_corr, nx1, nx2, dx, a1, b1, a2, b2, s):
     A2 = np.array([])
     B2 = np.array([])
-    A1 = np.diagflat([-0.5 * s[0] for i in range(nx - 1 + mat_i_corr[0])], -1) + \
+    A1 = np.diagflat([-0.5 * s[0] for i in range(nx1 - 1 + mat_i_corr[0])], -1) + \
          np.diagflat([1. + mat_corr_l[0] * s[0] * (1 - mat_corr_l1[0] * (dx[0] * b1[0] / a1[0]))] + \
-                    [1. + s[0] for i in range(nx - 2 + mat_i_corr[0])] + \
+                    [1. + s[0] for i in range(nx1 - 2 + mat_i_corr[0])] + \
                     [1. + mat_corr_r[0] * s[0] * (1 + mat_corr_r1[0] * (dx[0] * b2[0] / a2[0]))]) + \
-         np.diagflat([-0.5 * s[0] for i in range(nx - 1 + mat_i_corr[0])], 1)
+         np.diagflat([-0.5 * s[0] for i in range(nx1 - 1 + mat_i_corr[0])], 1)
 
-    B1 = np.diagflat([0.5 * s[0] for i in range(nx - 1 + mat_i_corr[0])], -1) + \
+    B1 = np.diagflat([0.5 * s[0] for i in range(nx1 - 1 + mat_i_corr[0])], -1) + \
          np.diagflat([1. - mat_corr_l[0] * s[0]  * (1 - mat_corr_l1[0] * (dx[0] * b1[0] / a1[0]))] + \
-                     [1. - s[0] for i in range(nx - 2 + mat_i_corr[0])] + \
+                     [1. - s[0] for i in range(nx1 - 2 + mat_i_corr[0])] + \
                      [1. - mat_corr_r[0] * s[0]  * (1 + mat_corr_r1[0] * (dx[0] * b2[0] / a2[0]))]) + \
-         np.diagflat([0.5 * s[0] for i in range(nx - 1 + mat_i_corr[0])], 1)
+         np.diagflat([0.5 * s[0] for i in range(nx1 - 1 + mat_i_corr[0])], 1)
     if len(s) == 2:
-        A2 = np.diagflat([-0.5 * s[1] for i in range(nx - 1 + mat_i_corr[1])], -1) + \
+        A2 = np.diagflat([-0.5 * s[1] for i in range(nx2 - 1 + mat_i_corr[1])], -1) + \
             np.diagflat([1. + mat_corr_l[1] * s[1] * (1 - mat_corr_l1[1] * (dx[1] * b1[1] / a1[1]))] + \
-                        [1. + s[1] for i in range(nx - 2 + mat_i_corr[1])] + \
+                        [1. + s[1] for i in range(nx2 - 2 + mat_i_corr[1])] + \
                         [1. + mat_corr_r[1] * s[1] * (1 + mat_corr_r1[1] * (dx[1] * b2[1] / a2[1]))]) + \
-            np.diagflat([-0.5 * s[1] for i in range(nx - 1 + mat_i_corr[1])], 1)
+            np.diagflat([-0.5 * s[1] for i in range(nx2 - 1 + mat_i_corr[1])], 1)
 
-        B2 = np.diagflat([0.5 * s[1] for i in range(nx - 1 + mat_i_corr[1])], -1) + \
+        B2 = np.diagflat([0.5 * s[1] for i in range(nx2 - 1 + mat_i_corr[1])], -1) + \
              np.diagflat([1. - mat_corr_l[1] * s[1]  * (1 - mat_corr_l1[1] * (dx[1] * b1[1] / a1[1]))] + \
-                         [1. - s[1] for i in range(nx - 2 + mat_i_corr[1])] + \
+                         [1. - s[1] for i in range(nx2 - 2 + mat_i_corr[1])] + \
                          [1. - mat_corr_r[1] * s[1]  * (1 + mat_corr_r1[1] * (dx[1] * b2[1] / a2[1]))]) + \
-             np.diagflat([0.5 * s[1] for i in range(nx - 1 + mat_i_corr[1])], 1)
+             np.diagflat([0.5 * s[1] for i in range(nx2 - 1 + mat_i_corr[1])], 1)
     return A1, B1, A2, B2
 
 
 #Выводит каждый ntout-ный график
 def find_solution(cnst, ntout, num_eq, C1, C2=None):
-    D, x_max, dx, dt, a1, b1, c1, a2, b2, c2 = cnst
-    x = np.arange(0, x_max[0] + dx[0], dx[0])
-    nx = len(x)
-    nt, n_out = ntout
+    D, l0, dx, dt, a1, b1, c1, a2, b2, c2 = cnst
+    x1 = np.arange(0, l0[0] + dx[0], dx[0])
+    nx2 = None
+    nx1 = len(x1)
+    if C2 is not None and len(C2) != 0:
+        x2 = np.arange(0, l0[1] + dx[1], dx[1])
+        nx2 = len(x2)
+    nt, n_out, steps_ot = ntout
     mat_corr_r, mat_corr_l, mat_i_corr, mat_corr_l1, mat_corr_r1, vec_r, vec_l, C_0, C_last, s, f1, f2, C1, C2 = \
-        create_matrix_coeffitients(a1, b1, c1, a2, b2, c2, nx, dx, dt, D, num_eq, C1.copy(), C2.copy())
+        create_matrix_coeffitients(a1, b1, c1, a2, b2, c2, nx1, nx2, dx, dt, D, num_eq, C1.copy(), C2.copy())
 
-
-    A1, B1, A2, B2 = create_matrix(mat_corr_r, mat_corr_l, mat_corr_l1, mat_corr_r1, mat_i_corr, nx, dx, a1, b1, a2, b2, s)
+    A1, B1, A2, B2 = create_matrix(mat_corr_r, mat_corr_l, mat_corr_l1, mat_corr_r1, mat_i_corr, nx1, nx2, dx, a1,
+                                   b1, a2, b2, s)
 
     Cout1 = []  # list for storing C arrays at certain time steps
     Cout2 = []
-    for n in range(1, nt): # time is going from second time step to last
-        Cn1 = C1.copy()
-        C1[vec_l[0]:vec_r[0]] = solve_eq(A1, Cn1, vec_l[0], vec_r[0], B1, f1, s[0], C_0[0], C_last[0], mat_corr_l[0], mat_corr_r[0])
-        if num_eq == 2:
+    for n in range(1, max(nt)): # time is going from second time step to last
+        if n < nt[0]:
+            Cn1 = C1.copy()
+            C1[vec_l[0]:vec_r[0]] = solve_eq(A1, Cn1, vec_l[0], vec_r[0], B1, f1, s[0], C_0[0], C_last[0], mat_corr_l[0], mat_corr_r[0])
+            if n % int(nt[0] / float(n_out[0])) == 0:
+                Cout1.append(C1.copy())  # numpy arrays are mutable, so we need to write out a copy of C, not C itself
+                print(n)
+        if num_eq == 2 and n < nt[1]:
             Cn2 = C2.copy()
             C2[vec_l[1]:vec_r[1]] = solve_eq(A2, Cn2, vec_l[1], vec_r[1], B2, f2, s[1], C_0[1], C_last[1], mat_corr_l[1], mat_corr_r[1])
-        if n % int(nt / float(n_out)) == 0 or n == nt - 1:
-            Cout1.append(C1.copy())  # numpy arrays are mutable, so we need to write out a copy of C, not C itself
-            if C2 is not None:
+            if (n % int(nt[1] / float(n_out[1])) == 0) and C2 is not None:
                 Cout2.append(C2.copy())
-            print(n)
+                print(n)
     return Cout1, C1, Cout2, C2
 
 
@@ -226,21 +235,31 @@ def write_data(k, C_out):
     print(f"Результаты уравнения {k} успешно внесены")
 
 # Main блок
-cnst, ntout, k, num_eq = read_const_file('Константы 1.txt')
-nx = len(np.arange(0, cnst[1][0] + cnst[2][0], cnst[2][0]))
-C_in =  np.array([1. for i in range(0, int(nx / 2))] + [0. for j in range(int(nx / 2), nx)]) # initial condition
-C_in2 =  np.array([0. for p in range(0, int(nx / 2))] + [1. for l in range(int(nx / 2), nx)])
-# C_in2[-1] = 1.
-C1_out, C1_last, C2_out, C2_last = find_solution(cnst, ntout, num_eq,  C_in.copy(), C_in2.copy())
+
+params = param('config.ini')
+num_eq = params.num_of_eq
+cnst = [params.D, params.l0, params.dx, params.dt, params.A_l,
+        params.B_l, params.C_l, params.A_r, params.B_r, params.C_r]
+ntout = [params.num_of_iter, params.num_of_graphs, params.steps_of_print]
+
+C_in1 = params.C_in1
+C_in2 = params.C_in2
+# cnst, ntout, k, num_eq = read_const_file('Константы 1.txt')
+# nx = len(np.arange(0, cnst[1][0] + cnst[2][0], cnst[2][0]))
+C1_out, C1_last, C2_out, C2_last = find_solution(cnst, ntout, num_eq,  C_in1.copy(), C_in2.copy())
 C1_out.append(C1_last)
 C2_out.append(C2_last)
 
 write_data(1, C1_out)
-write_data(2, C2_out)
-#вывод графиков
-x = np.arange(0, cnst[1][0] + cnst[2][0], cnst[2][0])
-print_plot(x, C1_out, C_in)
 if num_eq == 2:
-    print_plot(x, C2_out, C_in2)
+    write_data(2, C2_out)
+#вывод графиков
+x1 = np.arange(0, cnst[1][0] + cnst[2][0], cnst[2][0])
+print_plot(x1, C1_out, C_in1)
+if num_eq == 2:
+    x2 = np.arange(0, cnst[1][1] + cnst[2][1], cnst[2][1])
+    print_plot(x2, C2_out, C_in2)
+# except Exception:
+#     print('Ошибка')
 
 
