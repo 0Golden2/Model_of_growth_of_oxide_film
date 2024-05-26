@@ -146,46 +146,151 @@ def create_matrix(mat_corr_r, mat_corr_l, mat_corr_l1, mat_corr_r1, mat_i_corr, 
     return A1, B1, A2, B2
 
 
-def heed_changing_bond(f2, D, s, dx, C1):
-    lamb = 1.2
+def heed_changing_bond(f2, D, s, dx, C1, lamb=1.2):
     c1 = lamb * D[0] * (C1[1] - C1[0]) / dx[0]
     f2[0] = s * c1 * dx[1] / D[1]
+    # C2[0] = C1[1] / 4
     return f2
 
 
-#Выводит каждый ntout-ный график
-def solver(cnst, ntout, num_eq, C1, x1, C2=None, x2=None, model_oxide=False):
+def dimensionless_cnst(cnst, T=723):
     D, l0, dx, dt, a_l, b_l, c_l, a_r, b_r, c_r = cnst
+    D_ot = lambda T: np.exp(-0.3 / (8.617 * 10**(-5) * T))
+    D_fet = lambda T: np.exp(-0.65 / (8.617 * 10**(-5) * T))
+    D_o = 1
+    D_fe = 81 * D_fet(T) / D_ot(T)
+    dx_o = dx[0] / l0[0]
+    dx_fe = dx[1] / l0[1]
+    # dt_o = dt[0] * D_ot(T) / l0[0]**2
+    dt_o = dt[0]
+    dt_fe = dt[0]
+    # dt_fe = dt[0]
+    # dt_fe = dt[1] * D_ot(T) / l0[0]**2
+    b_l_o = b_l[0] * l0[0]
+    b_l_fe = b_l[1] * l0[1]
+    c_l_o = c_l[0] * l0[0]
+    c_l_fe = c_l[1] * l0[1]
+    b_r_o = b_r[0] * l0[0]
+    b_r_fe = b_r[1] * l0[1]
+    c_r_o = c_r[0] * l0[0]
+    c_r_fe = c_r[1] * l0[1]
+    dim_less_cnst = ([D_o, D_fe], l0, [dx_o, dx_fe], [dt_o, dt_fe], a_l, [b_l_o, b_l_fe], [c_l_o, c_l_fe],
+                     a_r, [b_r_o, b_r_fe], [c_r_o, c_r_fe])
+    return dim_less_cnst
+
+
+#Выводит каждый ntout-ный график
+def solver(cnst, ntout, num_eq, C1, x1, C2=None, x2=None, model_oxide=False, lamb=1.2):
+    if model_oxide:
+        dim_less_cnst = dimensionless_cnst(cnst)
+        D, l0, dx, dt, a_l, b_l, c_l, a_r, b_r, c_r = dim_less_cnst
+        print(D, l0, dx, dt, a_l, b_l, c_l, a_r, b_r, c_r)
+    else:
+        D, l0, dx, dt, a_l, b_l, c_l, a_r, b_r, c_r = cnst
     nx2 = None
     nx1 = len(x1)
     if C2 is not None and len(C2) != 0:
         nx2 = len(x2)
+    n_l = 0
+    n_r = 0
+    arr_n_r = []
+    arr_n_l = []
+    arr_dl_l = []
+    arr_dl_r = []
+    L_r = 0
+    L_l = 0
+    dL_l = 0
+    dL_r = 0
+    flow_ox = []
+    flow_fe = []
+    # flag_change_bondaries = False
     nt, n_out, steps_ot = ntout
     mat_corr_r, mat_corr_l, mat_i_corr, mat_corr_l1, mat_corr_r1, vec_r, vec_l, C_0, C_last, s, f1, f2, C1, C2 = \
         create_matrix_coeffitients(a_l, b_l, c_l, a_r, b_r, c_r, nx1, nx2, dx, dt, D, num_eq, C1.copy(), C2.copy())
 
     A1, B1, A2, B2 = create_matrix(mat_corr_r, mat_corr_l, mat_corr_l1, mat_corr_r1, mat_i_corr, nx1, nx2, dx, a_l,
                                    b_l, a_r, b_r, s)
-
+    # print(B1.shape, B2.shape)
     Cout1 = []  # list for storing C arrays at certain time steps
     Cout2 = []
     for n in range(1, max(nt)): # time is going from second time step to last
         if any(map(lambda q: np.isnan(q), C1)) or any(map(lambda q: np.isnan(q), C2)) or any(map(lambda q: q < 0.0, C1)) \
                 or any(map(lambda q: q < 0.0, C2)) or any(map(lambda q: q > 1.1, C1)) or any(map(lambda q: q > 1.1, C2)):
-            print('Incorrect values during calculation')
-            break
+            C1 = np.clip(C1, 0, 1)
+            C2 = np.clip(C2, 0, 1)
+        dL_l += D[0] * (C1[1] - C1[0]) / dx[0] * dt[0]
+        dL_r += D[1] * (C2[-1] - C2[-2]) / dx[1] * dt[1]
+        L_l += D[0] * (C1[1] - C1[0]) / dx[0] * dt[0]
+        L_r += D[1] * (C2[-1] - C2[-2]) / dx[1] * dt[1]
+        flow_ox.append(D[0] * (C1[1] - C1[0]) / dx[0])
+        flow_fe.append(D[1] * (C2[nx2 - 1] - C2[nx2 - 2]) / dx[1])
+        arr_dl_r.append(L_r)
+        arr_dl_l.append(L_l)
+        # print(dL_r, dL_l)
+        if np.abs(dL_r) * 0.01 / dt[0] >= dx[0]:
+            nx2 += 1
+            nx1 += 1
+            n_r += 1
+            x1 = np.append(x1, x1[-1] + dx[1])
+            x2 = np.append(x2, x2[-1] + dx[0])
+            C1 = np.append(C1, C1[-1])
+            C2 = np.append(C2, C2[-1])
+            dL_r = 0
+        if dL_l * 0.01 / dt[0] >= dx[0]:
+            nx1 += 1
+            nx2 += 1
+            n_l += 1
+            x1 = np.insert(x1, 0, x1[0] - dx[1])
+            x2 = np.insert(x2, 0, x2[0] - dx[0])
+            C1 = np.insert(C1, 0, C1[0])
+            C2 = np.insert(C2, 0, C1[1] / 4)
+            dL_l = 0
+            # flag_change_bondaries = True
+            # print(len(C1), len(x1))
+        if dL_l == 0 or dL_r == 0:
+            f1 = np.zeros(nx1)
+            f2 = None
+            if nx2 is not None:
+                f2 = np.zeros(nx2)
+            for i in range(num_eq):
+                if a_l[i] != 0:
+                    if i == 0:
+                        f1[0] = s[0] * c_l[0] * dx[0] / a_l[0]
+                    else:
+                        f2[0] = s[1] * c_l[1] * dx[1] / a_l[1]
+                if a_r[i] != 0:
+                    if i == 0:
+                        f1[-1] = - s[0] * c_r[0] * dx[0] / a_r[0]
+                    else:
+                        f2[-1] = - s[1] * c_r[1] * dx[1] / a_r[1]
+
+            A1, B1, A2, B2 = create_matrix(mat_corr_r, mat_corr_l, mat_corr_l1, mat_corr_r1, mat_i_corr, nx1, nx2, dx,
+                                           a_l, b_l, a_r, b_r, s)
+            # print(B1.shape, B2.shape)
         if n < nt[0]:
             Cn1 = C1.copy()
+            # print(len(Cn1))
             C1[vec_l[0]:vec_r[0]] = solve_eq(A1, Cn1, vec_l[0], vec_r[0], B1, f1, s[0], C_0[0], C_last[0], mat_corr_l[0], mat_corr_r[0])
+
             if n % int(nt[0] / float(n_out[0])) == 0:
                 Cout1.append(C1.copy())  # numpy arrays are mutable, so we need to write out a copy of C, not C itself
-                # print(n)
+                arr_n_l.append(n_l)
+                arr_n_r.append(n_r)
+                # print(len(C1))
+                # print(dL_r, dL_l)
         if num_eq == 2 and n < nt[1]:
+            # print(flag_change_bondaries)
             if model_oxide:
-                f2 = heed_changing_bond(f2.copy(), D, s[1], dx, C1.copy())
+                f2 = heed_changing_bond(f2.copy(), D, s[1], dx, C1.copy(), lamb)
+                # flag_change_bondaries = False
             Cn2 = C2.copy()
             C2[vec_l[1]:vec_r[1]] = solve_eq(A2, Cn2, vec_l[1], vec_r[1], B2, f2, s[1], C_0[1], C_last[1], mat_corr_l[1], mat_corr_r[1])
             if (n % int(nt[1] / float(n_out[1])) == 0) and C2 is not None:
                 Cout2.append(C2.copy())
-                # print(n)
-    return Cout1, C1, Cout2, C2
+                # print(len(C2))
+                # print(nx2)
+        if n % 1000 == 0:
+            print(n)
+    arr_n_l.append(n_l)
+    arr_n_r.append(n_r)
+    return Cout1, C1, Cout2, C2, x1, x2, arr_n_l, arr_n_r, arr_dl_l, arr_dl_r, flow_ox, flow_fe, D[1]

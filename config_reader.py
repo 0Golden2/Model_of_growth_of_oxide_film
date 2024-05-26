@@ -10,11 +10,15 @@ def read_config(path):
         if os.path.isfile(path):
             try:
                 params = param(path)
+                print('Please wait the calculation is underway')
             except ValueError as e:
-                create_config('default.ini')
-                params = param('default.ini')
-                print(f'Wrong values in init file:{e}. Data will be taken from the default file')
-            print('Please wait the calculation is underway')
+                print(f'Wrong values in init file:{e}\nIf you want to take data from the default file type \'Y\', '
+                      'if exit - type \'N\'')
+                flag = input()
+                if flag == 'Y':
+                    create_config('default.ini')
+                    params = param('default.ini')
+                    print('Please wait the calculation is underway')
             break
         else:
             if path == 'exit':

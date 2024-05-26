@@ -1,20 +1,23 @@
 import numpy as np
 
 
-def exp(x):
+def exp(x, norm=True):
     y = np.exp(x)
-    y_scaled = y / max(y)
-    return y_scaled
+    if norm:
+        y = y / max(y)
+    return y
 
 
-def polinom(x, coefs:list):
+def polinom(x, coefs:list, norm=True):
     y = np.polyval(coefs, x)
-    y_scaled = y / max(y)
-    y_clipped = np.clip(y_scaled, 0, 1)
-    return y_clipped
+    if norm:
+        y_scaled = y / max(y)
+        y = np.clip(y_scaled, 0, 1)
+    return y
 
 
-def gauss(x, coefs:list):
+def gauss(x, coefs:list, norm=True):
     y = 1 / (2 * np.pi * coefs[0]) * np.exp(-(x - coefs[1])**2 / (2 * coefs[0]**2))
-    y_scaled = y / max(y)
-    return y_scaled
+    if norm:
+        y = y / max(y)
+    return y
